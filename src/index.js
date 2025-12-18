@@ -37,23 +37,23 @@ export default {
 
       // POST /upload - upload file (multipart form)
       if (path === '/upload' && request.method === 'POST') {
-        return await handleUpload(request, env, corsHeaders);
+        return await handleUpload(request, env, corsHeaders, getBaseUrl(request));
       }
 
       // POST /upload-base64 - upload base64 image
       if (path === '/upload-base64' && request.method === 'POST') {
-        return await handleBase64Upload(request, env, corsHeaders);
+        return await handleBase64Upload(request, env, corsHeaders, getBaseUrl(request));
       }
 
       // POST /upload-url - upload from external URL
       if (path === '/upload-url' && request.method === 'POST') {
-        return await handleUrlUpload(request, env, corsHeaders);
+        return await handleUrlUpload(request, env, corsHeaders, getBaseUrl(request));
       }
 
       // GET /signed/:key - get signed URL for existing file
       if (path.startsWith('/signed/')) {
         const key = decodeURIComponent(path.replace('/signed/', ''));
-        return await getSignedUrl(key, env, url, corsHeaders);
+        return await getSignedUrl(key, env, url, corsHeaders, getBaseUrl(request));
       }
 
       // GET /temp/:key - access via signed URL
@@ -101,7 +101,7 @@ export default {
 // Upload Handlers
 // ============================================
 
-async function handleUpload(request, env, cors) {
+async function handleUpload(request, env, cors, baseUrl) {
   const formData = await request.formData();
   const file = formData.get('file');
   const folder = formData.get('folder') || 'uploads';
@@ -122,12 +122,12 @@ async function handleUpload(request, env, cors) {
   return json({
     success: true,
     key,
-    url: `https://cdn.artistpro.me/${key}`,
-    temp_url: await generateTempUrl(key, env, 3600)
+    url: `${baseUrl}/${key}`,
+    temp_url: await generateTempUrl(key, env, 3600, baseUrl)
   }, 200, cors);
 }
 
-async function handleBase64Upload(request, env, cors) {
+async function handleBase64Upload(request, env, cors, baseUrl) {
   const body = await request.json();
   const { data, filename, folder = 'uploads', content_type } = body;
 
@@ -158,13 +158,13 @@ async function handleBase64Upload(request, env, cors) {
   return json({
     success: true,
     key,
-    url: `https://cdn.artistpro.me/${key}`,
-    temp_url: await generateTempUrl(key, env, 3600),
+    url: `${baseUrl}/${key}`,
+    temp_url: await generateTempUrl(key, env, 3600, baseUrl),
     size: buffer.length
   }, 200, cors);
 }
 
-async function handleUrlUpload(request, env, cors) {
+async function handleUrlUpload(request, env, cors, baseUrl) {
   const { url: sourceUrl, folder = 'uploads', filename } = await request.json();
 
   if (!sourceUrl) {
@@ -191,8 +191,8 @@ async function handleUrlUpload(request, env, cors) {
   return json({
     success: true,
     key,
-    url: `https://cdn.artistpro.me/${key}`,
-    temp_url: await generateTempUrl(key, env, 3600),
+    url: `${baseUrl}/${key}`,
+    temp_url: await generateTempUrl(key, env, 3600, baseUrl),
     size: buffer.byteLength,
     source: sourceUrl
   }, 200, cors);
@@ -202,10 +202,10 @@ async function handleUrlUpload(request, env, cors) {
 // Signed URL Generation & Verification
 // ============================================
 
-async function generateTempUrl(key, env, expiresIn = 3600) {
+async function generateTempUrl(key, env, expiresIn = 3600, baseUrl = 'https://cdn.artistpro.me') {
   const expires = Math.floor(Date.now() / 1000) + expiresIn;
   const token = await signData(`${key}:${expires}`, env.SIGNING_SECRET);
-  return `https://cdn.artistpro.me/temp/${encodeURIComponent(key)}?expires=${expires}&token=${token}`;
+  return `${baseUrl}/temp/${encodeURIComponent(key)}?expires=${expires}&token=${token}`;
 }
 
 async function signData(data, secret) {
@@ -224,7 +224,7 @@ async function verifySignature(data, token, secret) {
   return token === expectedToken;
 }
 
-async function getSignedUrl(key, env, url, cors) {
+async function getSignedUrl(key, env, url, cors, baseUrl) {
   const expiresIn = parseInt(url.searchParams.get('expires_in') || '3600');
 
   // Check file exists
@@ -233,11 +233,11 @@ async function getSignedUrl(key, env, url, cors) {
     return json({ error: 'File not found' }, 404, cors);
   }
 
-  const tempUrl = await generateTempUrl(key, env, expiresIn);
+  const tempUrl = await generateTempUrl(key, env, expiresIn, baseUrl);
 
   return json({
     key,
-    url: `https://cdn.artistpro.me/${key}`,
+    url: `${baseUrl}/${key}`,
     temp_url: tempUrl,
     expires_in: expiresIn,
     size: object.size,
@@ -353,4 +353,10 @@ function json(data, status = 200, cors = {}) {
     status,
     headers: { 'Content-Type': 'application/json', ...cors }
   });
+}
+
+// Get base URL from request (handles both cdn.artistpro.me and workers.dev fallback)
+function getBaseUrl(request) {
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`;
 }
