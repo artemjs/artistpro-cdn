@@ -1,0 +1,17 @@
+{
+  "name": "artistpro-cdn",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for ARTISTPRO R2 CDN with signed URLs",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "keywords": ["cloudflare", "worker", "r2", "cdn"],
+  "author": "ARTISTPRO",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
