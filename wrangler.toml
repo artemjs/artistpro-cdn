@@ -7,7 +7,11 @@ binding = "BUCKET"
 bucket_name = "artistpro"
 
 [vars]
-SIGNING_SECRET = "change-this-to-random-32-char-secret"
+SIGNING_SECRET = "eab63ed88813993d3710d4e9442e9525
+80d32a646d0170aedf229eab0336ff6f
+41cb33c0dae0765ec5d79635f97331ea
+38457070882a38172f97dde400d79af6
+bad43a34904733b5b73463249ee58897"
 
 # Route to custom domain
 routes = [
